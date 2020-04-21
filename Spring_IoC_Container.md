@@ -6,7 +6,7 @@ Inversion of Control (IoC) is also known as dependency injection (DI). It is a p
 
 ###### 上层建筑依赖于下层建筑
 
-!()[https://github.com/617076674/Spring_Notes/blob/master/pictures/%E4%B8%8A%E5%B1%82%E4%BE%9D%E8%B5%96%E4%BA%8E%E4%B8%8B%E5%B1%82.png]
+行李箱`依赖`箱体，箱体`依赖`底盘，底盘`依赖`轮子。
 
 上述依赖关系表现在代码层面如下所示。
 
@@ -121,7 +121,7 @@ luggage.move();
 
 把下层作为参数传递给上层，实现上层对下层的“控制”。
 
-![](https://github.com/617076674/Spring_Notes/blob/master/pictures/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5%E5%AE%9E%E7%8E%B0%E6%8E%A7%E5%88%B6%E5%8F%8D%E8%BD%AC.png)
+将轮子`注入`底盘，再将底盘`注入`箱体，最后将箱体`注入`行李箱。
 
 上述依赖关系表现在代码层面如下所示。
 
@@ -217,8 +217,21 @@ public class Tire {
 
 #### 什么是IoC容器？
 
+The `org.springframework.beans` and `org.springframework.context` packages are the basis for Spring Framework's IoC container. The `BeanFactory` interface provides an advanced configuration mechanism capable of managing any type of object. `ApplicationContext` is a sub-interface of `BeanFactory`. It adds:
+
+- Easier integration with Spring's AOP features
+
+- Message resource handling (for use in internationalization)
+
+- Event publication
+
+- Application-layer specific contexts such as the `WebApplicationContext` for use in web applications.
+
+In short, the `BeanFactory` provides the configuration framework and basic functionality, and the `ApplicationContext` adds more enterprise-specific functionality. The `ApplicationContext` is a complete superset of the `BeanFactory`.
+
 #### 什么是bean？
 
+In Spring, the objects that form the backbone of your application and that are managed by the Spring IoC container are called beans. A bean is an object that is instantiated, assembled, and otherwise managed by a Spring IoC container. Otherwise, a bean is simply one of many objects in your application. Beans, and the dependencies among them, are reflected in the configuration metadata used by a container.
 
 
 
