@@ -6,6 +6,8 @@ Inversion of Control (IoC) is also known as dependency injection (DI). It is a p
 
 ###### 上层建筑依赖于下层建筑
 
+!()[https://github.com/617076674/Spring_Notes/blob/master/pictures/%E4%B8%8A%E5%B1%82%E4%BE%9D%E8%B5%96%E4%BA%8E%E4%B8%8B%E5%B1%82.png]
+
 上述依赖关系表现在代码层面如下所示。
 
 ```java
@@ -118,6 +120,8 @@ luggage.move();
 ###### 用依赖注入实现控制反转
 
 把下层作为参数传递给上层，实现上层对下层的“控制”。
+
+![](https://github.com/617076674/Spring_Notes/blob/master/pictures/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5%E5%AE%9E%E7%8E%B0%E6%8E%A7%E5%88%B6%E5%8F%8D%E8%BD%AC.png)
 
 上述依赖关系表现在代码层面如下所示。
 
