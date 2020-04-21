@@ -1,8 +1,8 @@
-[TOC]
-
 #### 什么是IoC？
 
 Inversion of Control (IoC) is also known as dependency injection (DI). It is a process whereby objects define their dependencies (that is, the other objects they work with) only through constructor arguments, arguments to a factory method, or properties that are set on the object instance after it is constructed or returned from a factory method. The container then injects those dependencies when it creates the bean. This process is fundamentally the inverse of the bean itself controlling the instantiation or location of its dependencies by using direct construction of classes or a mechanism such as the Service Locator pattern.
+
+Code is cleaner with the DI principle, and decoupling is more effective when objects are provided with their dependencies. The object doest not look up its dependencies and does not know the location or class of the dependencies. As a result, your classes become easier to test, particularly when the dependencies are on interfaces or abstract base classes, which allows for stub or mock implementations to be used in unit tests.
 
 ##### 以设计行李箱为例
 
@@ -267,9 +267,27 @@ In addition to bean definitions that contain information on how to create a spec
 
 ##### 手动注册BeanDefinition存在哪些问题呢？
 
+Bean metadata and manually supplied singleton instances need to be registered as early as possible, in order for the container to properly reason about them during autowiring and other introspection steps. While overriding existing metadata and existing singleton instances is supported to some degree, the registration of new beans at runtime (concurrently with live access to the factory) is not officially supported and may lead to concurrent access exceptions, inconsistent state in the bean container, or both.
 
+#### 未显示指定name和id的bean的命名规则是怎么样的？
 
+如果该bean是在XML中显示定义的：
 
+If you do not supply a `name` or `id` explicitly, the container generates a unique name for that bean. （并不是首字母小写的形式） However, if you want to refer to that bean by name, through the use of the `ref` element or a Service Locator style lookup, you must provide a name. Motivations for not supplying a name are related to using inner beans and autowiring collaborators.
+
+如果该bean是由component scanning机制在classpath中被扫描到的：
+
+With component scanning in the classpath, Spring generates bean names for unnamed components, following the rules: essentially, taking the simple class name and turning initial character to lower-case. However, in the (unusual) special case when there is more than one character and both the first and second characters are upper case, the original casing gets preserved.
+
+#### 如何在XML配置文件中指定静态内部类的class属性？
+
+If you want to configure a bean definition for a `static` nested class, you have to use the binary name of the nested class.
+
+For example, if you have a class called `SomeThing` in the `com.example` package, and this `SomeThing` class has a `static` nested class called `OtherThing`, the value of the `class` attribute on a bean definition would be `com.example.SomeThing$OtherThing`. （`com.example.SomeThing.OtherThing`也是可以的）
+
+Notice the use of the `$` character in the name to separate the nested class name from the outer class name.
+
+#### PropertyEditor的作用是什么？
 
 
 
