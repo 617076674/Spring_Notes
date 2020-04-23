@@ -371,7 +371,7 @@ public class AddressEditor extends PropertyEditorSupport {
 }
 ```
 
-我们可以使用AddressEditor来讲字符串转换为Address对象。
+我们可以使用AddressEditor来将字符串转换为Address对象。
 
 ```java
 //使用预设转换工具和自定义转换工具
@@ -458,7 +458,7 @@ One possible solution is to edit the source code of some classes to be configure
 
 ##### ApplicationContext为什么选择在IoC容器创建的时候就初始化作用域为Singleton的bean实例？
 
-Spring detects configuration problems, such as references to non-existent beans and circular dependencies, at container load-time. Spring sets properties and resolves dependencies as late as possible, when the bean is actually created. This means that a Spring container that has loaded correctly can later generate an exception when you request an object is there is a problem creating that object or one of its dependencies - for example, the bean throws an exception as a result of a missing or invalid property. This potentially delayed visibility of some configuration issues is why `ApplicationContext` implementations by default pre-instantiate singleton beans. At the cost of some upfront time and memory to create these beans before they are actually needed, you discover configuration issues when the `ApplicationContext` is created, not later. You can still override this default behavior so that singleton beans initialize lazily, rather being pre-instantiated.
+Spring detects configuration problems, such as references to non-existent beans and circular dependencies, at container load-time. Spring sets properties and resolves dependencies as late as possible, when the bean is actually created. This means that a Spring container that has loaded correctly can later generate an exception when you request an object if there is a problem creating that object or one of its dependencies - for example, the bean throws an exception as a result of a missing or invalid property. This potentially delayed visibility of some configuration issues is why `ApplicationContext` implementations by default pre-instantiate singleton beans. At the cost of some upfront time and memory to create these beans before they are actually needed, you discover configuration issues when the `ApplicationContext` is created, not later. You can still override this default behavior so that singleton beans initialize lazily, rather being pre-instantiated.
 
 #### 关于Inner Beans的一些注意点
 
@@ -542,13 +542,15 @@ The Spring container creates a new instance of the `LoginAction` bean by using t
 
 The Spring container creates a new instance of the `UserPreferences` bean by using the `userPreferences` bean definition for the lifetime of a single HTTP `Session`. In other words, the `userPreferences` bean is effectively scoped at the HTTP `Session` level. As with request-scoped beans, you can change the internal state of the instance that is created as much as you want, knowing that other HTTP `Session` instances that are also using instances created from the same `userPreferences` bean definition do not see these changes in state, because they are particular to an individual HTTP `Session`. When the HTTP `Session` is eventually discarded, the bean that is scoped to that particular HTTP `Session` is also discarded.
 
-##### application
+##### application?????
 
 ```xml
 <bean id="appPreferences" class="com.something.AppPreferences" scope="application"/>
 ```
 
 The Spring container creates a new instance of the `AppPreferences` bean by using the `appPreferences` bean definition once for the entire web application. That is, the `appPreferences` bean is scoped at the `ServletContext` level and stored as a regular `ServletContext` attribute. This is somewhat similar to a Spring singleton bean but differs in two important ways: It is a singleton per `ServletContext`, not per Spring 'ApplicationContext' (for which there may be several in any given web application), and it is actually exposed and there visible as a `ServletContext` attribute.
+
+##### websocket
 
 #### 将小作用域对象注入大作用域对象需要使用`<aop:scoped-proxy/>`
 
@@ -568,6 +570,311 @@ The Spring container creates a new instance of the `AppPreferences` bean by usin
 
 The Spring IoC container manages not only the instantiation of your objects (beans), but also the wiring up of collaborators (or dependencies). If you want to inject (for example) an HTTP request-scoped bean into another bean of a longer-lived scope, you may choose to inject an AOP proxy in place of the scoped bean. That is, you need to inject a proxy object that exposes the same public interface as the scoped object but can also retrieve the real target object from the revelant scope (such as an HTTP request) and delegate method calls onto the real object.
 
+#### 默认的destroy方法
+
+You can assign the `destroy-method` attribute of a `<bean/>` element a special `(inferred)` value, which instructs Spring to automatically detect a public `close` or `shutdown` method on the specific bean class. (Any class that implements `java.lang.AutoCloseable` or `java.io.Closeable` would therefore match.) You can also set this special `(inferred)` value on the `default-destroy-method` attribute of a `<beans/>` element to apply this behavior to an entire set of beans. Note that this is the default behavior with Java Configuration.
+
+#### bean初始化时，`@PostConstruct`注解的方法、setter注入、构造函数注入、`InitializingBean`的`afterPropertiesSet()`方法、`init-method`的执行顺序
+
+（1）构造函数注入
+
+（2）setter注入
+
+（3）`@PostConstruct`注解的方法
+
+（4）`InitializingBean`的`afterPropertiesSet()`方法
+
+（5）`init-method`
+
+##### 如何开启对`@PostConstrutc`的支持？
+
+在XML文件中加入如下语句。
+
+```xml
+<context:annotation-config/>
+```
+
+##### 如果`InitializingBean`的`afterPropertiesSet()`方法被`@PostConstruct`标记，该方法只会执行一次。
+
+#### IoC容器销毁时，`@PreDestroy`注解的方法、`DisposableBean`的`destroy()`方法、`destroy-method`的执行顺序
+
+（1）`@PreDestroy`注解的方法。
+
+（2）`DisposableBean`的`destroy()`方法。
+
+（3）`destroy-method`。
+
+##### 如何在IoC容器销毁时，测试这些方法的执行顺序？
+
+Spring's web-based `ApplicationContext` implementations already have code in place to gracefully shut down the Spring IoC container when the relevant web application is shut down. If you use Spring's IoC container in a non-web application environment (for example, in a rich desktop environment), register a shutdown hook with the JVM. Doing so ensures a graceful shutdown and calls the relevant destroy methods on your singleton beans so that all resources are released.
+
+To register a shudown hook, call the `registerShutdownHook()` method that is declared on the `ConfigurableApplicationContext` interface.
+
+```java
+ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext("beans.xml");
+ctx.registerShutdownHook();	// add a shutdown hook for the above context...
+```
+
+#### LifeCycle接口的作用是什么？
+
+```java
+public interface Lifecycle {
+    void start();
+
+    void stop();
+
+    boolean isRunning();
+}
+```
+
+任意Spring管理的bean实例都可以实现`Lifecycle`接口，在IoC容器加载和初始化所有bean之后、收到stop()信号之后，`LifecycleProcessor`会调用所有`Lifecycle`对应的方法。
+
+```java
+public interface LifecycleProcessor extends Lifecycle {
+    void onRefresh();
+
+    void onClose();
+}
+```
+
+##### Lifecycle的所有方法不会在IoC容器加载和初始化所有bean之后、收到stop信号之后被自动调用
+
+Note that the regular `org.springframework.context.Lifecycle` interface is a plain contract for explicit start and stop notifications and does not imply auto-startup at context refresh time. For fine-grained control over auto-startup of a specific bean (including startup phases), consider implementing `org.springframework.context.SmartLifecycle` instead.
+
+```java
+ConfigurableApplicationContext applicationContext = new ClassPathXmlApplicationContext("spring-config.xml");
+applicationContext.registerShutdownHook();
+//需要显式调用start()和stop()方法，Lifecycle接口的start()和stop()方法才会被调用
+applicationContext.start();	
+applicationContext.stop();
+```
+
+##### Lifecycle的stop()方法一定先于`@PreDestroy`注解的方法、`DisposableBean`的`destroy()`方法和`destroy-method`吗？
+
+On regular shutdown, all `Lifecycle` beans first receive a stop notification before the general destruction callbacks are being propagated. However, on hot refresh during a context's lifetime or on aborted refresh attempts, only destroy methods are called.
+
+##### SmartLifecycle可以实现对stop()和start()方法的自动调用，但是其stop()方法是stop(Runnable callback)方法，接受一个回调参数Runnable callback
+
+在SmartLifetcycle的默认实现里，stop(Runnable callback)是这样的。
+
+```java
+default void stop(Runnable callback) {
+	stop();
+	callback.run();
+}
+```
+
+The stop method defined by `SmartLifecycle` accepts a callback. Any Implementation must invoke that callback's `run()` method after that implementation's shutdown process is complete. That enables asynchronous shutdown where necessary, since the default implementation of the `LifecycleProcessor` interface, `DefaultLifecycleProcessor`, waits up to its timeout value for the group of objects within each phase to invoke that callback. The default per-phase timeout is 30 seconds. You can override the default lifecycle processor instance by defining a bean named `lifecycleProcessor` within the context. If you want only to modify the timeout, defining the following would suffice:
+
+```xml
+<bean id="lifecycleProcessor" class="org.springframework.context.support.DefaultLifecycleProcessor">
+    <!-- timeout value in milliseconds -->
+    <property name="timeoutPerShutdownPhase" value="10000"/>
+</bean>
+```
+
+#### 什么是ServletContext？
+
+ServletContext是Servlet与Servlet容器之间进行直接通信的接口。Servlet容器在启动一个webapp时，会为它创建一个ServletContext对象，即每个webapp都有唯一一个ServletContext对象。同一个webapp的所有Servlet对象共享一个ServletContext，Servlet对象可以通过ServletContext来访问容器中的各种资源。
+
+##### 如何获取一个ServletContext？
+
+```java
+javax.servlet.http.HttpSession::getServletContext()
+javax.servlet.jsp.PageContext::getServletContext()
+javax.servlet.ServletConfig::getServletContext()
+javax.servlet.ServletRequest::getServletContext()
+```
+
+##### ServletContext有哪些作用？
+
+（1）在webapp范围内进行数据的共享
+
+| 方法 | 作用 |
+| :-: | :-: |
+| setAttribute(String name, Object object) | 以key-value的形式将数据存入ServletContext，比如Spring中作用域为application的bean实例 |
+| Object getAttribute(String name) | 从ServletContext中取出传入key对应的value |
+| Enumeration<String> getAttributeNames() | 从ServletContext中取出所有Attribute的name |
+| void removeAttribute(String name) | 移除ServletContext中指定key对应的value |
+
+（2）访问webapp的资源
+
+| 方法 | 作用 |
+| :-: | :-: |
+| String getContextPath() | 返回当前webapp的URL入口，如果不配置默认为空字符串 |
+| String getInitParameter(String name) | 获取ServletContext中配置的初始化参数，即web.xml中context-param元素中配置的参数，这个元素中配置的参数是webapp范围内都有效的初始化参数 |
+| Enumeration<String> getInitParameterNames() | 获取ServletContext中配置的所有初始化参数名称 |
+| RequestDispather getRequestDispatcher(String path) | 返回一个用于向其他web组件转发请求的RequestDispatcher对象 |
+
+（3）获取Servlet容器的相关信息
+
+| 方法 | 作用 |
+| :-: | :-: |
+| ServletContext getContext(String uripath) | 根据参数指定的url返回当前Servlet容器中其他webapp的ServletContext对象 |
+| getMajorVersion() | 返回Servlet容器支持的Java Servlet API的主版本号 |
+| getMinorVersion() | 返回Servlet容器支持的Java Servlet API的次版本号 |
+| getServerInfo() | 返回Servlet容器的名字和版本 |
+
+（4）访问服务器端的文件系统资源
+
+| 方法 | 作用 |
+| :-: | :-: |
+| String getRealPath(String path) | 根据参数指定的虚拟路径（以webapp所在目录为根目录），返回文件系统中的一个真实的路径 |
+| URL getResource(String path) | 返回一个映射到参数指定的路径的url |
+| InputStream getResource(String path) | 返回一个用于读取参数指定的文件的输入流（把文件读到输入流中去） |
+| String getMimeType(String file) | 返回参数指定的文件的MIME类型 |
+
+
+#### 什么是ServletConfig？
+
+Servlet容器初始化一个Servlet类型的对象时，会为这个Servlet对象创建一个ServletConfig对象。在ServletConfig对象中包含了Servlet的初始化参数信息。此外，ServletConfig对象还与ServletContext对象相关联。Servlet容器在调用Servlet对象的init(ServletConfig config) 方法时，会把ServletConfig类型的对象当作参数传递给Servlet对象。在Servlet内部提供了getServletConfig()方法来获取关联的ServletConfig对象。
+
+##### ServletConfig有哪些作用？
+
+| 方法 | 作用 |
+| :-: | :-: |
+| ServletContext getServletContext() | 获得与ServletConfig相关联的ServletConfig对象 |
+| String getServletName() | 返回Servlet的名字，即web.xml中相对应的Servlet的子元素servlet-name的值。如果没有配置这个子元素，则返回Servlet类的全局限定名 |
+| String getInitParameter(String name) | 根据给定的初始化参数，返回匹配的初始化参数值，即web.xml中servlet元素的子元素init-param所配置的参数 |
+| Enumeration<String> getInitParameterNames() | 返回所有配置的初始化参数名称 |
+
+#### 什么是BeanPostProcessor？
+
+The `BeanPostProcessor` interface defines callback methods that you can implement to provide your own (or override the container's default) instantiation logic, dependency resolution logic, and so forth. If you want to implement some custom logic after the Spring container finishes instantiating, configuring, and initializing a bean, you can plug in one or more custom `BeanPostProcessor` implementations.
+
+##### 如何控制多个BeanPostProcessor的执行顺序？
+
+You can configure multiple `BeanPostProcessor` instances, and you can control the order in which these `BeanPostProcessor` instances execute by setting the `order` property. You can get this property only if the `BeanPostProcessor` implements the `Ordered` interface. If you write your own `BeanPostProcessor`, you should consider implementing the `Ordered` interface, too.
+
+##### BeanPostProcessor的作用范围是什么？
+
+`BeanPostProcessor` instances are scoped per-container. This is relevant only if you use container hierarchies. If you define a `BeanPostProcessor` in one container, it post-processes only the beans in that container. In other words, beans that are defined in one container are not post-processed by a `BeanPostProcessor` defined in another container, even if both containers are part of the same hierarchy.
+
+##### BeanPostProcessor的执行时机是什么？
+
+Object postProcessBeforeInitialization(Object bean, String beanName)发生在构造函数注入和setter方法注入之后，在`@PostConstruct`注解的方法、`InitializingBean`的`afterPropertiesSet()`方法、`init-method`执行之前。
+
+Object postProcessAfterInitialization(Object bean, String beanName)发生在`@PostConstruct`注解的方法、`InitializingBean`的`afterPropertiesSet()`方法、`init-method`执行之后。
+
+The `org.springframework.beans.factory.config.BeanPostProcessor` interface consists of exactly two callback methods. When such a class is registered as a post-processor with the container, for each bean instance that is created by the container, the post-processor gets a callback from the container both before container initialization methods (such as `InitializingBean.afterPropertiesSet()` or any declared `init` method) are called, and after any bean initialization callbacks. The post-processor can take any action with the bean instance, including ignoring the callback completely. A bean post-processor typically checks for callback interfaces, or it may wrap a bean with a proxy. Some Spring AOP infrastructure classes are implemented as bean post-processor in order to provide proxy-wrapping logic.
+
+##### BeanPostProcessor是如何注册到IoC容器中的？
+
+An `ApplicationContext` automatically detects any beans that are defined in the configuration metadata that implements the `BeanPostProcessor` interface. The `ApplicationContext` registers these beans as post-processors so that they can be called later, upon bean creation. Bean post-processor can be deployed in the container in the same fashion as any other beans.
+
+Note that, when declaring a `BeanPostProcessor` by using an `@Bean` factory method on a configuration class, the return type of the factory method should be the implementation class itself or at least the `org.springframework.beans.factory.config.BeanPostProcessor` interface, clearly indicating the post-processor nature of that bean. Otherwise, the `ApplicationContext` cannot autodetect it by type before fully creating it. Since a `BeanPostProcessor` needs to be instantiated early in order to apply to the initialization of other beans in the context, this early type detection is critical.
+
+###### 如何用编程的形式注册BeanPostProcessor到IoC容器中？
+
+While the recommended approach for `BeanPostProcessor` registration is through `ApplicationContext` auto-detection, you can register them programmatically against a `ConfigurableBeanFactory` by using the `addBeanPostProcessor` method. This can be useful when you need to evaluate conditional logic before registration or even for copying bean post processors across contexts in a hierarchy. Note, however, that `BeanPostProcessor` instances added programmatically do not respect the `Ordered` interface. Here, it is the order of registration that dictates the order of execution. Note also that `BeanPostProcessor` instances registered programmatically are always processed before those registered through auto-detection, regardless of any explicit ordering.
+
+```java
+Resource resource = new ClassPathResource("com/repeat/read/lifecycle/spring-config.xml");
+ConfigurableBeanFactory configurableBeanFactory = new DefaultListableBeanFactory();
+BeanDefinitionReader bdr = new XmlBeanDefinitionReader((BeanDefinitionRegistry) configurableBeanFactory);
+bdr.loadBeanDefinitions(resource);
+configurableBeanFactory.addBeanPostProcessor(new BeanPostProcessorTest());
+configurableBeanFactory.getBean("lifeCycleTest", LifeCycleTest.class);
+```
+
+#### BeanPostProcessor与AOP自动代理 ?????
+
+Classes that implement the `BeanPostProcessor` interface are special and are treated differently by the container. All `BeanPostProcessor` instances and beans that they directly reference are instantiated on startup, as part of the special startup phase of the `ApplicationContext`. Next, all `BeanPostProcessor` instances are registered in a sorted fashion and applied to all further beans in the container. Because AOP auto-proxying is implemented as a `BeanPostProcessor` itself, neither `BeanPostProcessor` instances nor the beans they directly reference are eligible for auto-proxying and, thus, do not have aspects woven into them.
+
+For any such bean, you should see an informational log message: `Bean someBean is not eligible for getting processed by all BeanPostProcessor interfaces (for example: not eligible for auto-proxying)`.
+
+If you have beans wired into your `BeanPostProcessor` by using autowiring or `@Resource` (which may fall back to autowiring), Spring might access unexpected beans when searching for type-matching dependency candidates and, therefore, making them ineligible for auto-proxying or other kinds of bean post-processing. For example, if you have a dependency annotated with `@Resource` where the field or setter name does not directly correspond to the declared name of a bean and no name attribute is used, Spring accesses other beans for matching them by type.
+
+#### BeanPostProcessor和BeanFactoryPostProcessor的区别是什么？
+
+`BeanPostProcessor` instances operate on bean (or object) instances. That is, the Spring IoC container instantiates a bean instance and then `BeanPostProcessor` instances do their work.
+
+To change the actual bean definition (that is, the blueprint that defines the bean), you instead need to use a `BeanFactoryPostProcessor`.
+
+`BeanFactoryPostProcessor` operates on the bean definition metadata. That is, the Spring IoC container lets a `BeanFactoryPostProcessor` read the configuration metadata and potentially change it before the container instantiates any beans other than `BeanFactoryPostProcessor` instances.
+
+#### PropertySourcesPlaceholderConfigurer和PropertyOverrideConfigurer的区别是什么？
+
+##### PropertySourcesPlaceholderConfigurer的用法
+
+有一个配置文件database.properties。
+
+```
+jdbc.driverClassName=com.mysql.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/mydb
+jdbc.username=root
+jdbc.password=password
+```
+
+```xml
+<bean class="org.springframework.beans.factory.config.PropertySourcesPlaceholderConfigurer">
+    <property name="location">
+        <value>database.properties</value>
+    </property>
+</bean>
+<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+	<property name="driverClassName" value="${jdbc.driverClassName}" />
+    <property name="url" value="${jdbc.url}" />
+    <property name="username" value="${jdbc.username}" />
+    <property name="password" value="${jdbc.password}" />
+</bean>
+```
+
+经过上述配置后，id为dataSource的配置和下述配置效果相同。
+
+```xml
+<bean id="dataSource"  class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+    <property name="driverClassName" value="com.mysql.jdbc.Driver" />
+    <property name="url" value="jdbc:mysql://localhost:3306/mydb" />
+    <property name="username" value="root" />
+    <property name="password" value="password" />
+</bean>
+```
+
+##### PropertyOverrideConfigurer的用法
+
+有一个配置文件myproperties.properties。
+
+```
+person.age=40
+person.name=Stanis
+```
+
+```xml
+<bean class="org.springframework.beans.factory.config.PropertyOverrideConfigurer">
+    <property name="location" value="classpath:myproperties.properties" />
+</bean>
+<bean id="person" class="com.sample.Employee" >
+       <property name="name" value="Dugan"/>
+       <property name="age" value="50"/>       
+</bean> 
+```
+
+经过上述配置后，IoC容器中的id为person的bean实例的`name`是`Stanis`，`age`是`40`。
+
+#### 什么是FactoryBean？
+
+You can implement the `org.springframework.beans.factory.FactoryBean` interface for objects that are themselves factories.
+
+The `FactoryBean` interface is a point of pluggability into the Spring IoC container's instantiation logic. If you have complex initialization code that is better expressed in Java as opposed to a (potentially) verbose amount of XML, you can create your own `FactoryBean`, write the complex initialization inside that class, and then plug your custom `FactoryBean` into the container.
+
+#### 如何从IoC容器中获取FactoryBean？
+
+When you need to ask a container for an actual `FactoryBean` instance itself instead of the bean it produces, preface the bean's `id` with the ampersand symbol (`&`) when calling the `getBean()` method of the `ApplicationContext`. So, for a given `FactoryBean` with an `id` of `myBean`, invoking `getBean("myBean")` on the container returns the product of the `FactoryBean`, whereas invoking `getBean("&myBean")` returns the `FactoryBean` instance itself.
+
+#### 注解配置和XML配置的顺序先后
+
+Annotation injection is performed before XML injection. Thus, the XML configuration overrides the annotations for properties wired through both approaches.
+
+#### 如何开启注解配置？
+
+在XML配置文件中定义如下配置。
+
+```xml
+<context:annotation-config/>
+```
+
+上述XML配置向IoC容器注册了4个BeanPostProcessor，分别是`AutowireAnnotationBeanPostProcessor`, `CommonAnnotationBeanPostProcessor`, `PersistenceAnnotationBeanPostProcessor`和`RequiredAnnotationBeanPostProcessor`。
 
 
 
