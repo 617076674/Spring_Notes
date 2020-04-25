@@ -215,7 +215,7 @@ public class Tire {
 }
 ```
 
-可以看到，仅虚修改了轮胎（Tire）的构造函数，无需修改了所有上层（Bottom、Framework、Luggage）的构造函数，代码可维护性高。
+可以看到，仅需修改轮胎（Tire）的构造函数，无需修改了所有上层（Bottom、Framework、Luggage）的构造函数，代码可维护性高。
 
 #### 什么是IoC容器？
 
@@ -494,13 +494,13 @@ The `autowire-candidate` attribute is designed to only affect type-based autowir
 
 #### 为什么需要Method Injection？
 
-In most application scenarios, most beans in the container are singletons. When a singleton bean needs to collaborate with another singleton bean or a non-singleton bean needs to collaborate with another non-singleton bean, you typically handle the dependency by defining one bean as a property of the other. A problem arises when the bean lifecycle are different. Suppost singleton bean A needs to use non-singleton (prototype) bean B, perhaps on each method invocation on A. The container creates the singleton bean A only once, and thus only gets one opportunity to set the properties. The container cannot provide bean A with a new instance of bean B every time one is needed.
+In most application scenarios, most beans in the container are singletons. When a singleton bean needs to collaborate with another singleton bean or a non-singleton bean needs to collaborate with another non-singleton bean, you typically handle the dependency by defining one bean as a property of the other. A problem arises when the bean lifecycle are different. Suppose singleton bean A needs to use non-singleton (prototype) bean B, perhaps on each method invocation on A. The container creates the singleton bean A only once, and thus only gets one opportunity to set the properties. The container cannot provide bean A with a new instance of bean B every time one is needed.
 
 #### 什么是Lookup Method Injection？
 
 Lookup method injection is the ability of the container to override methods on container-managed beans and return the lookup result for another named bean in the container. The lookup typically involves a prototype bean. The Spring Framework implements this method injection by using bytecode generation from the CGLIB library to dynamically generate a subclass that overrides the method.
 
-##### Lookup Method Injection的注意点
+##### Lookup Method Injection的注意点?????
 
 - For this dynamic subclassing to work, the class that the Spring bean container subclasses cannot be `final`, and the method to be overridden cannot be `final`, either.
 
@@ -542,7 +542,7 @@ The Spring container creates a new instance of the `LoginAction` bean by using t
 
 The Spring container creates a new instance of the `UserPreferences` bean by using the `userPreferences` bean definition for the lifetime of a single HTTP `Session`. In other words, the `userPreferences` bean is effectively scoped at the HTTP `Session` level. As with request-scoped beans, you can change the internal state of the instance that is created as much as you want, knowing that other HTTP `Session` instances that are also using instances created from the same `userPreferences` bean definition do not see these changes in state, because they are particular to an individual HTTP `Session`. When the HTTP `Session` is eventually discarded, the bean that is scoped to that particular HTTP `Session` is also discarded.
 
-##### application?????
+##### application
 
 ```xml
 <bean id="appPreferences" class="com.something.AppPreferences" scope="application"/>
@@ -550,7 +550,7 @@ The Spring container creates a new instance of the `UserPreferences` bean by usi
 
 The Spring container creates a new instance of the `AppPreferences` bean by using the `appPreferences` bean definition once for the entire web application. That is, the `appPreferences` bean is scoped at the `ServletContext` level and stored as a regular `ServletContext` attribute. This is somewhat similar to a Spring singleton bean but differs in two important ways: It is a singleton per `ServletContext`, not per Spring 'ApplicationContext' (for which there may be several in any given web application), and it is actually exposed and there visible as a `ServletContext` attribute.
 
-##### websocket
+##### websocket?????
 
 #### 将小作用域对象注入大作用域对象需要使用`<aop:scoped-proxy/>`
 
@@ -580,13 +580,13 @@ You can assign the `destroy-method` attribute of a `<bean/>` element a special `
 
 （2）setter注入
 
-（3）`@PostConstruct`注解的方法
+（3）`@PostConstruct`注解的方法（多个`@PostConstruct`注解的方法的执行顺序是其在类中出现的顺序执行）
 
 （4）`InitializingBean`的`afterPropertiesSet()`方法
 
 （5）`init-method`
 
-##### 如何开启对`@PostConstrutc`的支持？
+##### 如何开启对`@PostConstruct`的支持？
 
 在XML文件中加入如下语句。
 
@@ -598,7 +598,7 @@ You can assign the `destroy-method` attribute of a `<bean/>` element a special `
 
 #### IoC容器销毁时，`@PreDestroy`注解的方法、`DisposableBean`的`destroy()`方法、`destroy-method`的执行顺序
 
-（1）`@PreDestroy`注解的方法。
+（1）`@PreDestroy`注解的方法。（多个`@PreDestroy`注解的方法的执行顺序是其在类中出现的顺序执行）
 
 （2）`DisposableBean`的`destroy()`方法。
 
@@ -711,9 +711,9 @@ javax.servlet.ServletRequest::getServletContext()
 | 方法 | 作用 |
 | :-: | :-: |
 | ServletContext getContext(String uripath) | 根据参数指定的url返回当前Servlet容器中其他webapp的ServletContext对象 |
-| getMajorVersion() | 返回Servlet容器支持的Java Servlet API的主版本号 |
-| getMinorVersion() | 返回Servlet容器支持的Java Servlet API的次版本号 |
-| getServerInfo() | 返回Servlet容器的名字和版本 |
+| int getMajorVersion() | 返回Servlet容器支持的Java Servlet API的主版本号 |
+| int getMinorVersion() | 返回Servlet容器支持的Java Servlet API的次版本号 |
+| String getServerInfo() | 返回Servlet容器的名字和版本 |
 
 （4）访问服务器端的文件系统资源
 
@@ -875,6 +875,58 @@ Annotation injection is performed before XML injection. Thus, the XML configurat
 ```
 
 上述XML配置向IoC容器注册了4个BeanPostProcessor，分别是`AutowireAnnotationBeanPostProcessor`, `CommonAnnotationBeanPostProcessor`, `PersistenceAnnotationBeanPostProcessor`和`RequiredAnnotationBeanPostProcessor`。
+
+#### @Autowired注解用在setter方法和构造函数上的区别是什么？
+
+- @Autowired注解用在setter方法上时，如果该属性是一个map，且找不到该map的value对应类型的bean，那么就会抛出异常。
+
+- @Autowired注解用在构造函数上时，如果该属性是一个map，且找不到该map的value对应类型的bean，那么该map就会为空（不是null）。
+
+This allows for a common implementation pattern where all dependencies can be declared in a unique multi-argument constructor - for example, declared as a single public constructor without an `@Autowired` annotation.
+
+Only one constructor of any given bean class may declare `@Autowired` with the `required` attribute set to `true`, indicating the constructor to autowire when used as a Spring bean. As a consequence, if the `required` attribute is left at its default value `true`, only a single constructor may be annotated with `@Autowired`. If multiple constructors declare the annotation, they will all have to declare `required=false` in order to be considered as candidates for autowiring. The constructor with the greatest number of dependencies that can be satisfied by matching beans in the Spring container will be chosen. If none of the candidates can be satisfied, then a primary/default constructor (if present) will be used. If a class only declares a single constructor to begin with, it will always be used, even if not annotated. Note that an annotated constructor does not have to be public.
+
+#### @Autowired注解的自引用问题
+
+As of 4.3, `@Autowired` also considers self references for injection (that is, references back to the bean that is currently injected). Note that self injection is a fallback. Regular dependencies on other components always have precedence. In that sense, self references do not participate in regular candidate selection and are therefore in particular never primary. On the contrary, they always end up as lowest precedence. In practice, you should use self references as a last resort only (for example, for calling other methods on the same instance through the bean's transactional proxy). Consider factoring out the effected methods to a separate delegate bean in such a scenario. Alternatively, you can use `@Resource`, which may obtain a proxy back to the current bean by its unique name.
+
+Trying to inject the results from `@Bean` methods on the same configuration class is effectively a self-reference scenario as well. Either lazily such references in the method signature where it is actually needed (as opposed to an autowired field in the configuration class) or declare the affected `@Bean` methods as `static`, decoupling them from the containing configuration class instance and its lifecycle. Otherwise, such beans are only considered in the fallback phase, with matching beans on other configuration classes selected as primary candidates instead (if available).
+
+#### CustomAutowireConfigurer的作用是什么？
+
+@Qualifier可以实现自定义修饰注解的功能。
+
+```java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface Offline {}
+```
+
+为了避免每个自定义注解上都用@Qualifier去修饰，可以在Spring中提供一个CustomAutowireConfigurer的bean定义，并直接注册所有自定义注解类型。
+
+```xml
+<bean id="customAutowireConfigurer"
+        class="org.springframework.beans.factory.annotation.CustomAutowireConfigurer">
+    <property name="customQualifierTypes">
+        <set>
+            <value>example.Offline</value>
+        </set>
+    </property>
+</bean>
+```
+
+#### AutowireCandidateResolver是如何确定自动注入哪个对象的？
+
+- The `autowire-candidate` value of each bean definition （如果某个bean的定义为`autowire-candidate=false`，那么这个bean不会被自动注入到其他对象中）
+
+- Any `default-autowire-candidates` patterns available on the `<beans/>` element
+
+- The presence of `@Qualifier` annotations and any custom annotations registered with the `CustomAutowireConfigurer`
+
+When multiple beans qualify as autowire candidates, the determination of a "primary" is as follows: If exactly one bean definition among the candidates has a `primary` attribute set to `true`, it is selected.
+
+#### @Resource注解是根据名称查找bean的，但如果没有找到相匹配的bean，将会根据类型自动注入。
 
 
 
