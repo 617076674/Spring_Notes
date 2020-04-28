@@ -221,13 +221,13 @@ public class Tire {
 
 The `org.springframework.beans` and `org.springframework.context` packages are the basis for Spring Framework's IoC container. The `BeanFactory` interface provides an advanced configuration mechanism capable of managing any type of object. `ApplicationContext` is a sub-interface of `BeanFactory`. It adds:
 
-- Easier integration with Spring's AOP features
+- Access to messages in i18n-style, through the `MessageSource` interface.
 
-- Message resource handling (for use in internationalization)
+- Access to resources, such as URLs and files, through the `ResourceLoader` interface.
 
-- Event publication
+- Event publication, namely to beans that implement the `ApplicationListener` interface, through the use of the `ApplicationEventPublisher` interface.
 
-- Application-layer specific contexts such as the `WebApplicationContext` for use in web applications.
+- Loading of multiple (hierarchical) contexts, letting each be focused on one particular layer, such as the web layer of an application, through the `HierarchicalBeanFactory` interface.
 
 In short, the `BeanFactory` provides the configuration framework and basic functionality, and the `ApplicationContext` adds more enterprise-specific functionality. The `ApplicationContext` is a complete superset of the `BeanFactory`.
 
@@ -334,6 +334,24 @@ System.out.println(wrapper.getWrappedInstance());
 
 在JavaBean规范中定义了`PropertyEditor`，用于将字符串转换为对象。`BeanWrapper`继承了`PropertyEditorRegistry`接口用于注册`PropertyEditor`。`BeanWrapperImpl`预置了许多简单类型的`PropertyEditor`，比如上述例子中的代码`p.setProperty("age", "25");`，`age`是一个`int`类型，在设置数据时会自动启用`CustomNumberEditor`进行格式转换。除了预置的`PropertyEditor`外，我们还可以自定义`PropertyEditor`。
 
+BeanWrapperImpl中注册了许多默认的`PropertyEditor`实现类：
+
+| Class | Explanation |
+| :-: | :-: |
+| `ByteArrayPropertyEditor` | Editor for byte arrays. Converts strings to their corresponding byte representations. Registered by default by `BeanWrapperImpl`. |
+| `ClassEditor` | Parses Strings that represent classes to actual classes and vice-versa. When a class is not found, an `IllegalArgumentException` is thrown. By default, registered by `BeanWrapperImpl`. |
+| `CustomBooleanEditor` | Customizable property editor for `Boolean` properties. By default, registered by `BeanWrapperImpl` but can be overridden by registering a custom instance of it as a custom editor. |
+| `CustomCollectionEditor` | Property editor for collections, converting any source `Collection` to a given target `Collection` type. |
+| `CustomDateEditor` | Customizable property editor for `java.util.Date`, supporting a custom `DateFormat`. NOT registered by default. Must be user-registered with the appropriate format as needed. |
+| `CustomNumberEditor` | Customizable property editor for any `Number` subclass, such as `Integer`, `Long`, `Float`, or `Double`. By default, registered by `BeanWrapperImpl` but can be overridden by registering a custom instance of it as a custom editor. |
+| `FileEditor` | Resolves strings to `java.io.File` objects. By default, registered by `BeanWrapperImpl`. |
+| `InputStreamEditor` | One-way property editor that can take a string and produce (through an intermediate `ResourceEditor` and `Resource`) and `InputStream` so that `InputStream` properties may be directly set as strings. Note that the default usage does not close the `InputStream` for you. By default, registered by `BeanWrapperImpl`. |
+| `LocaleEditor` | Can resolve strings to `Locale` objects and vice-versa (the string format is `[country][variant]`, same ad the `toString` method of `Locale`). By default, registered by `BeanWrapperImpl`. |
+| `PatternEditor` | Can resolve strings to `java.util.regex.Pattern` objects and vice-versa. |
+| `PropertiesEditor` | Can convert strings (formatted with the format defined in the javadoc of the `java.util.Properties` class) to `Properties` objects. By default, registered by `BeanWrapperImpl`. |
+| `StringTrimmerEditor` | Property editor that trims strings. Optionally allows transforming an empty string into a `null` value. NOT registered by default - must be user-registered. |
+| `URLEditor` | Can resolve a string representation of a URL to an actual `URL` object. By default, registered by `BeanWrapperImpl`. |
+
 Person中有一个类型为Address的成员变量，我们需要为Address添加一个自定义的`PropertyEditor`，用于字符串和Address对象之间的转换。
 
 ```java
@@ -386,6 +404,8 @@ System.out.println(wrapper.getWrappedInstance());
 ```
 
 按照JavaBean规范，`PropertyEditor`和对应的JavaBean可以用命名规则来表示绑定关系，而无需显式调用注册方法。规则如下：如果一个JavaBean命名为A，在相同的包下由一个实现了PropertyEditor接口并且命名为AEditor的类，那么就无需调用`BeanWrapper::registerCustomEditor`方法来声明A和AEditor的绑定关系。
+
+If there is a need to register other custom `PropertyEditors`, several mechanisms are available. The most manual approach, which is not normally convenient or recommended, is to use the `registerCustomerEditor()` method of the `ConfigurableBeanFactory` interface, assuming you have a `BeanFactory` reference. Another (slightly more convenient) mechanism is to use a special bean factory post-processor called `CustomEditorConfigurer`. Although you can use bean factory post-processors with `BeanFactory` implementations, the `CustomEditorConfigurer` has a nested property setup, so we strongly recommend that you use it with the `ApplicationContext`, where you can deploy it in similar fashion to any other bean and where is can be automatically detected and applied.
 
 对于Spring的ApplicationContext而言，`BeanWrapper`、`PropertyEditor`都是相对比较底层的类，IoC容器使用`CustomEditorConfigurer`（一个`BeanFactoryPostProcessor`）来管理Bean初始化相关的`PropertyEditor`。通过`CustomEditorConfigurer`可以使用所有预置的Editor，还可以增加自定义的Editor。
 
@@ -964,11 +984,90 @@ Finally, a single class may hold multiple `@Bean` methods for the same bean, as 
 
 As with most annotation-based alternatives, keep in mind that the annotation metadata is bound to the class definition itself, while the use of XML allows for multiple beans of the same type to provide variations in their qualifier metadata, because that metadata is provided per-instance rather than per-class.
 
+#### Environment是什么？
 
+The `Environment` interface is an abstraction integrated in the container that models two key aspects of the application environment: profiles and properties.
 
+A profile is a named, logical group of bean definitions to be registered with the container only if the given profile is active. Beans may be assigned to a profile whether defined in XML or with annotations. The role of the `Environment` object with relation to profiles is in determining which profiles (if any) are currently active, and which profiles (if any) should be active by default.
 
+Properties play an important role in almost all applications and may originate from a variety of sources: properties files, JVM system properties, system environment variables, JNDI, servlet context parameters, ad-hoc `Properties` objects, `Map` objects, and so on. The role of the `Environment` object with relation to properties is to provide the user with a convenient service interface for configuring property sources and resolving properties from them.
 
+#### PropertySource是什么？
 
+Spring's `Environment` abstraction provides search operations over a configurable hierarchy of property source.
+
+```java
+ApplicationContext ctx = new GenericApplicationContext();
+Environment env = ctx.getEnvironment();
+boolean containsMyProperty = env.containsProperty("my-property");
+System.out.println("Does my environment contain the 'my-property' property? " + containsMyProperty);
+```
+
+We see a high-level way of asking Spring whether the `my-property` property is defined for the current environment. To answer this question, the `Environment` object performs a search over a set of `PropertySource` objects. A `PropertySource` is a simple abstraction over any source of key-value pairs, and Spring's `StandardEnvironment` is configured with two PropertySource objects - one representing the set of JVM system properties (`System.getProperties()`) and one representing the set of system environment variables (`System.genenv()`).
+
+##### System.getenv()和System.getProperties()的区别是什么？
+
+System.getenv()方法是获取指定的环境变量的值。它有两个重载方法，一个是接收参数为任意字符串，当存在指定环境变量时即返回环境变量的值，否则返回null。另一个是不接受参数，返回所有的环境变量。
+
+System.getProperties()用于获取所有的系统相关属性，包括文件编码、操作系统名称、区域、用户名等，此属性一般由JVM自动获取，不能设置。
+
+#### Spring提供的几个标准Event
+
+##### ContextRefreshedEvent
+
+Published when the `ApplicationContext` is initialized or refreshed (for example, by using the `refresh()` method on the `ConfigurableApplicationContext` interface). Here, "initialized" means that all beans are loaded, post-processor beans are detected and activated, singletons are pre-instantiated, and the `ApplicationContext` object is ready for use. As long as the context has not been closed, a refresh can be triggered multiple times, provided that the chosen `ApplicationContext` actually supports such "hot" refreshes. For example, `XmlWebApplicationContext` supports hot refreshes, but `GenericApplicationContext` does not.
+
+##### ContextStartedEvent
+
+Published when the `ApplicationContext` is started by using the `start()` method on the `ConfigurableApplicationContext` interface. Here, "started" means that all `Lifecycle` beans receive an explicit start signal. Typically, this signal is used to restart beans after an explicit stop, but it may also be used to start components that have not been configured for autostart (for example, components that have not already started on initialization).
+
+##### ContextStoppedEvent
+
+Published when the `ApplicationContext` is stopped by using the `stop()` method on the `ConfigurableApplicationContext` interface. Here, "stopped" means that all `Lifecycle` beans receive an explicit stop signal. A stopped context may be restarted through a `start()` call.
+
+##### ContextClosedEvent
+
+Published when the `ApplicationContext` is being closed by using the `close()` method on the `ConfigurableApplicationContext` interface or via a JVM shutdown hook. Here, "closed" means that all singleton beans will be destroyed. Once the context is closed, it reaches its end of life and cannot be refreshed or restarted.
+
+##### RequestHandledEvent
+
+A web-specific event telling all beans that an HTTP request has been serviced. This event is published after the request is complete. This event is only applicable to web applications that use Spring's `DispatcherServlet`.
+
+##### ServletRequestHandledEvent
+
+A subclass of `RequestHandledEvent` that adds Servlet-specific context information.
+
+#### `BeanFactory`和`ApplicationContext`的区别是什么？
+
+You should use an `ApplicationContext` unless you have a good reason for not doing so, with `GenericApplicationContext` and its subclass `AnnotationConfigApplicationContext` as the common implementations for custom bootstrapping. These are the primary entry points to Spring's core container for all common purposes: loading of configuration files, triggering a classpath scan, programmatically registering bean definitions and annotated classes, and (as of 5.0) registering functional bean definitions.
+
+Because an `ApplicationContext` includes all the functionality of a `BeanFactory`, it is generally recommended over a plain `BeanFactory`, except for scenarios where full control over bean processing is needed. Within an `ApplicationContext` (such as the `GenericApplicationContext` implementation), several kinds of beans are detected by convention (that is, by bean name or by bean type - in particular, post-processors), while a plain `DefaultListableBeanFactory` is agnostic about any special beans.
+
+For many extended container features, such as annotation processing and AOP proxying, the `BeanPostProcessor` extension point is essential. If you use only a plain `DefaultListableBeanFactory`, such post-processors do not get detected and ectivated by default. This situation could be confusing, because nothing is actually wrong with your bean configuration. Rather, in such a scenario, the container needs to be fully bootstrapped through additional setup.
+
+```java
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+// populate the factory with bean definitions
+
+// now register any needed BeanPostProcessor instances
+factory.addBeanPostProcessor(new AutowiredAnnotationBeanPostProcessor());
+factory.addBeanPostProcessor(new MyBeanPostProcessor());
+
+// now start using the factory
+```
+
+```java
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+reader.loadBeanDefinitions(new FileSystemResource("beans.xml"));
+
+// bring in some property values from a Properties file
+PropertySourcesPlaceholderConfigurer cfg = new PropertySourcesPlaceholderConfigurer();
+cfg.setLocation(new FileSystemResource("jdbc.properties"));
+
+// now actually do the replacement
+cfg.postProcessBeanFactory(factory);
+```
 
 
 
