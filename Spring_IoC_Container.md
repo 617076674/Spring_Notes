@@ -346,7 +346,7 @@ BeanWrapperImpl中注册了许多默认的`PropertyEditor`实现类：
 | `CustomNumberEditor` | Customizable property editor for any `Number` subclass, such as `Integer`, `Long`, `Float`, or `Double`. By default, registered by `BeanWrapperImpl` but can be overridden by registering a custom instance of it as a custom editor. |
 | `FileEditor` | Resolves strings to `java.io.File` objects. By default, registered by `BeanWrapperImpl`. |
 | `InputStreamEditor` | One-way property editor that can take a string and produce (through an intermediate `ResourceEditor` and `Resource`) and `InputStream` so that `InputStream` properties may be directly set as strings. Note that the default usage does not close the `InputStream` for you. By default, registered by `BeanWrapperImpl`. |
-| `LocaleEditor` | Can resolve strings to `Locale` objects and vice-versa (the string format is `[country][variant]`, same ad the `toString` method of `Locale`). By default, registered by `BeanWrapperImpl`. |
+| `LocaleEditor` | Can resolve strings to `Locale` objects and vice-versa (the string format is `[country][variant]`, same as the `toString` method of `Locale`). By default, registered by `BeanWrapperImpl`. |
 | `PatternEditor` | Can resolve strings to `java.util.regex.Pattern` objects and vice-versa. |
 | `PropertiesEditor` | Can convert strings (formatted with the format defined in the javadoc of the `java.util.Properties` class) to `Properties` objects. By default, registered by `BeanWrapperImpl`. |
 | `StringTrimmerEditor` | Property editor that trims strings. Optionally allows transforming an empty string into a `null` value. NOT registered by default - must be user-registered. |
