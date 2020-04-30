@@ -279,8 +279,7 @@ boolean falseValue = parser.parseExpression(expression).getValue(societyContext,
 // Addition
 int two = parser.parseExpression("1 + 1").getValue(Integer.class);  // 2
 
-String testString = parser.parseExpression(
-        "'test' + ' ' + 'string'").getValue(String.class);  // 'test string'
+String testString = parser.parseExpression("'test' + ' ' + 'string'").getValue(String.class);  // 'test string'
 
 // Subtraction
 int four = parser.parseExpression("1 - -3").getValue(Integer.class);  // 4
